@@ -67,14 +67,12 @@ typedef void(^PropertyChangeBlock)(AVCaptureDevice *captureDevice);
     
     [self _configurationData];
     [self _configUI];
-
 }
 
 #pragma mark- action
 - (IBAction)startRecord:(UIButton *)sender {
     _isVideoRecord = YES;
     _isPaused = NO;
-    
 }
 
 - (IBAction)pauseRecord:(id)sender {
@@ -96,10 +94,7 @@ typedef void(^PropertyChangeBlock)(AVCaptureDevice *captureDevice);
         if(weakWriter.error){
             NSLog(@"看看%@",weakWriter.error.localizedDescription);
         }else{
-            AVPlayerViewController *mpVC = [];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [weakSelf presentViewController:mpVC animated:YES completion:nil];
-            });
+            [self exportAsset];
         }
     }];
 }
@@ -450,6 +445,61 @@ typedef void(^PropertyChangeBlock)(AVCaptureDevice *captureDevice);
     destDateString = [destDateString stringByReplacingOccurrencesOfString:@":" withString:@"-"];
     
     return destDateString;
+}
+
+- (void)exportAsset
+{
+    AVURLAsset *asset =[[AVURLAsset alloc] initWithURL:_fileURL options:nil];
+    
+    //获取视频总时长
+    Float64 duration = CMTimeGetSeconds(asset.duration);
+    
+    NSURL *outputFileUrl = [self createAssetFileURL];
+    
+    NSArray *compatiblePresets = [AVAssetExportSession exportPresetsCompatibleWithAsset:asset];
+    if ([compatiblePresets containsObject:AVAssetExportPresetMediumQuality])
+    {
+        
+        AVAssetExportSession *exportSession = [[AVAssetExportSession alloc]
+                                               initWithAsset:asset presetName:AVAssetExportPresetPassthrough];
+        
+        NSURL *outputURL = outputFileUrl;
+        
+        exportSession.outputURL = outputURL;
+        exportSession.outputFileType = AVFileTypeMPEG4;
+        exportSession.shouldOptimizeForNetworkUse = YES;
+        
+        CMTime start = CMTimeMakeWithSeconds(0, asset.duration.timescale);
+        CMTime duration = CMTimeMakeWithSeconds(0,asset.duration.timescale);
+        CMTimeRange range = CMTimeRangeMake(start, duration);
+        exportSession.timeRange = range;
+        
+        [exportSession exportAsynchronouslyWithCompletionHandler:^{
+            switch ([exportSession status]) {
+                case AVAssetExportSessionStatusFailed:
+                {
+                    NSLog(@"合成失败：%@", [[exportSession error] description]);
+                    
+                }
+                    break;
+                case AVAssetExportSessionStatusCancelled:
+                {
+                    
+                }
+                    break;
+                case AVAssetExportSessionStatusCompleted:
+                {
+                    NSLog(@"OK");
+                }
+                    break;
+                default:
+                {
+                    
+                } break;
+            }
+        }];
+    }
+
 }
 
 
